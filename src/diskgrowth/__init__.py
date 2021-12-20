@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
 import sys
-import csv
 import pprint
+import csv
 from simple_term_menu import TerminalMenu
 import os
 import subprocess
 import datetime
-import inspect
 import pathlib
+from .basicmenu import BasicMenu
+from .prompter import Prompter
 
 
 #configuration
@@ -19,124 +20,6 @@ pstats.mkdir(parents=True, exist_ok=True)
 
 ########################################################################################
 
-class BasicMenu(object):
-  """The BasicMenu class implements a simple TerminalMenu.
-
-  Subclasses define menu items as functions:
-    - with names starting with the "menuitem_XX_..." prefix
-    - and docblocks defining the menu text
-    - any function parameters are (attempted to be) fulfilled using kwargs passed to show() - ie: xxx.show(my_param='abc') --> menuitem_02_abc(my_param='abc')
-
-  Example menu item functions:
-    def menuitem_01_xyz(self):
-      '''XYZ'''
-      print("Do something")
-    
-    def menuitem_02_abc(self, my_param):
-      '''ABC'''
-      print("Do something")
-  """
-
-
-  TITLE = "BasicMenu Title:"    # replace with actual menu title in subclasses
-
-  def menuitem_quit():
-    """Quit"""
-  
-  def show(self, **kwargs):
-    """Show / Run the menu"""
-    import string
-
-    # create menu strings from menu function docblocks
-    menu_strings=[]
-    for i, menu_function in enumerate(self.menu_functions):
-      description = menu_function.__doc__.splitlines()[0]
-      shortcut = string.ascii_lowercase[i]
-      if menu_function == self.menuitem_quit:
-        shortcut = "q"
-      menu_strings.append(f"[{shortcut}] {description}")
-
-    # show the menu (repeatedly until quit)
-    terminal_menu = TerminalMenu(menu_strings, title=self.TITLE)    
-    while True:
-      menu_entry_index = terminal_menu.show()
-
-      # alias <escape> to quit
-      if menu_entry_index is None:
-        menu_entry_index = self.menu_functions.index(self.menuitem_quit)
-
-      # handle quit
-      if menu_entry_index == self.menu_functions.index(self.menuitem_quit):
-        return
-
-      # handle normal selection - call the selected function
-      try:
-        print(f"{self.TITLE} selected '{menu_strings[menu_entry_index]}'...\n")
-
-        # prepare function arguments (based on introspection of the selected function)
-        selected_function = self.menu_functions[menu_entry_index]
-        fnargs = kwargs
-        sig = inspect.signature(selected_function)
-        if 'kwargs' not in sig.parameters:
-          fnargs = {k:v for (k,v) in fnargs.items() if k in sig.parameters}   # filter arguments when selected_function does not accept **kwargs
-        
-        # call the selected function
-        self.menu_functions[menu_entry_index](**fnargs)
-      except KeyboardInterrupt:
-        print("\nCtrl-C detected.")
-
-  @property
-  def menu_functions(self):
-    """The list of menu-item functions:
-     - matching the 'menuitem_XX_...' pattern  (where XX is 2-digit number)
-     - plus the 'menuitem_quit' function"""
-    mfunctions = [getattr(self, method) for method in dir(self) if method.startswith('menuitem_') and method[9:11].isnumeric() and method[11:12]=='_']
-    mfunctions.append(self.menuitem_quit)
-    return mfunctions    
-
-########################################################################################
-
-class Prompter(object):
-  @classmethod
-  def get_input(cls, prompt_text, default_value):
-      response = input(f"{prompt_text} [{default_value}]: ")
-      if not response:
-          # response = None
-          response = default_value
-      return response
-
-  @classmethod
-  def get_multichoice(cls, title, options_list, allow_cancel=False, result_type='value'):
-    """Show a list of multichoice options, and return the value selected.  
-       The 'options-list' is a list where each item is one of the following:
-        - [value, description]
-        - [value]                = equivalent to [value, value]
-        - value                  = equivalent to [value, value]
-       
-       'allow_cancel'  param causes menu cancellation to raise a KeyBoardInterrupt - otherwise menu is displayed again
-       'result_type'   param determines the desired result type - ie: 'value' / 'description' / 'index'
-      
-    """
-    values       = [option_item[0]       if type(option_item) is list else option_item  for option_item in options_list]
-    descriptions = [option_item[0:2][-1] if type(option_item) is list else option_item  for option_item in options_list]
-
-    # show menu and process results
-    menu_entry_index = TerminalMenu(descriptions, title=title).show()
-    if (menu_entry_index is None) and (not allow_cancel):
-      raise KeyboardInterrupt
-    value = values[menu_entry_index]
-    description = descriptions[menu_entry_index]
-
-    print(f'{title} {value}')
-
-    # return value/description/index
-    assert result_type in ('value', 'description', 'index')
-    if result_type == 'value':
-      return value
-    if result_type == 'description':
-      return description
-    if result_type == 'index':
-      return menu_entry_index
 
 ########################################################################################
 
@@ -318,5 +201,4 @@ class MainMenu(BasicMenu):
 
 def main():
     MainMenu().show()
-
 
